@@ -12,7 +12,7 @@ const dbDir = path.dirname(dbPath);
 
 let isInitialized = false;
 
-console.log(`[DB] Final Shield v1.1.1: Targeting ${dbPath} (Cloud: ${isCloud})`);
+console.log(`[DB] Final Shield v1.1.3: Targeting ${dbPath} (Cloud: ${isCloud})`);
 
 // 1. Ensure Directory exists
 try {
