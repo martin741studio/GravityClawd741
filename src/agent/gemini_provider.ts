@@ -20,16 +20,16 @@ export class GeminiProvider implements LLMProvider {
         }));
 
         // Efficient Tier (Updated to resolve 404)
-        this.modelFlash = genAI.getGenerativeModel({
-            model: 'gemini-2.0-flash',
-            tools: [{ functionDeclarations }],
-        } as any);
+        const flashOptions: any = { model: 'gemini-2.0-flash' };
+        const proOptions: any = { model: 'gemini-2.0-pro-exp-02-05' };
 
-        // High Tier (Ultra/Pro)
-        this.modelPro = genAI.getGenerativeModel({
-            model: 'gemini-2.0-pro-exp-02-05',
-            tools: [{ functionDeclarations }],
-        } as any);
+        if (functionDeclarations.length > 0) {
+            flashOptions.tools = [{ functionDeclarations }];
+            proOptions.tools = [{ functionDeclarations }];
+        }
+
+        this.modelFlash = genAI.getGenerativeModel(flashOptions);
+        this.modelPro = genAI.getGenerativeModel(proOptions);
 
         const initialHistory = [
             {

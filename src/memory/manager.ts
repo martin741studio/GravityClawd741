@@ -133,10 +133,9 @@ Return ONLY the summary text. No preamble. Keep it under 250 words.`;
             const embedding = await generateEmbedding(content);
             if (!embedding || embedding.length === 0) return;
 
-            // Pinecone SDK v3+ uses upsert([ ... ]) or upsert({ records: [...] })
-            // We use the array format here as it's common in older SDK versions mapping to this codebase
-            await (index as any).upsert([
-                {
+            // Pinecone SDK v3+ requires { records: [...] }
+            await index.upsert({
+                records: [{
                     id: `msg_${id}`,
                     values: embedding,
                     metadata: {
@@ -146,8 +145,8 @@ Return ONLY the summary text. No preamble. Keep it under 250 words.`;
                         timestamp: Date.now(),
                         ...metadata
                     }
-                }
-            ]);
+                }]
+            });
             // console.log(`[Memory] Synced to Pinecone: msg_${id}`);
         } catch (error) {
             console.error('[Memory] Pinecone sync failed:', error);
