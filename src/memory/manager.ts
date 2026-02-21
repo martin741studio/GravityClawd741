@@ -1,4 +1,4 @@
-import { db } from '../db/index.js';
+import { db, sqlite } from '../db/index.js';
 import { facts, conversations, summaries, entities, relationships, usage } from '../db/schema.js';
 import { generateEmbedding, cosineSimilarity } from './embeddings.js';
 import { eq, desc, and, lte, or } from 'drizzle-orm';
@@ -193,25 +193,34 @@ Return ONLY the summary text. No preamble. Keep it under 250 words.`;
         try {
             const queryEmbedding = await generateEmbedding(query);
 
-            // A. Search Core Facts (SQLite - Small scale)
-            // Fetch all (optimization needed for >1k facts)
-            const allFacts = await db.select().from(facts);
+            // A. Search Core Facts (SQLite - Streaming Search)
+            interface ScoredFact { content: string; score: number; type: string; }
+            const scoredFacts: ScoredFact[] = [];
 
-            interface ScoredFact { content: string; score: number; }
+            // Use lower-level iterate to avoid loading all facts into a giant array
+            const stmt = sqlite.prepare("SELECT content, embedding, type FROM facts ORDER BY id DESC LIMIT 500");
+            for (const fact of stmt.iterate() as IterableIterator<any>) {
+                try {
+                    const embedding = JSON.parse(fact.embedding) as number[];
+                    const content = decrypt(fact.content);
+                    const score = cosineSimilarity(queryEmbedding, embedding);
 
-            const scoredFacts: any[] = allFacts.map((fact: any) => {
-                const embedding = JSON.parse(fact.embedding) as number[];
-                return {
-                    ...fact,
-                    content: decrypt(fact.content),
-                    score: cosineSimilarity(queryEmbedding, embedding),
-                };
-            });
+                    if (score > 0.65) {
+                        scoredFacts.push({
+                            content,
+                            score,
+                            type: fact.type
+                        });
+                    }
+                } catch (e) {
+                    continue;
+                }
+            }
+
             const topFacts = scoredFacts
-                .sort((a: ScoredFact, b: ScoredFact) => b.score - a.score)
-                .filter((f: ScoredFact) => f.score > 0.65)
+                .sort((a, b) => b.score - a.score)
                 .slice(0, 3)
-                .map((f: any) => {
+                .map(f => {
                     const prefix = f.type === 'media_context' ? '[VISUAL MEMORY]' :
                         f.type === 'user_preference' ? '[PREFERENCE]' : '[FACT]';
                     return `${prefix} ${f.content}`;
@@ -532,6 +541,9 @@ Return ONLY the description.`;
 
             } catch (error) {
                 console.error('[Memory] Media indexing failed:', error);
+            } finally {
+                // EXPLICIT BUFFER CLEANUP: Zero out the buffer reference to help GC
+                (part.inlineData as any).data = null;
             }
         }
     }

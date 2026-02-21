@@ -68,6 +68,7 @@ async function main() {
                 `Environment: ${env}`,
                 `Database Path: ${dbSource}`,
                 `Database Status: ${dbStatus}`,
+                `System Memory: ${Math.floor(process.memoryUsage().rss / 1024 / 1024)} MB`,
                 `Process Uptime: ${Math.floor(process.uptime() / 60)} minutes`,
                 `-------------------`,
                 `Status: Orbit Locked`
@@ -139,6 +140,19 @@ async function main() {
     bot.command('recs', async (ctx) => {
         await ctx.reply('Analyzing your workspace for recommendations...');
         await (schedulerManager as any).runSmartRecommendations();
+    });
+
+    bot.command('cleanup', async (ctx) => {
+        const initial = Math.floor(process.memoryUsage().rss / 1024 / 1024);
+        await ctx.reply(`Starting memory cleanup... (Initial: ${initial} MB)`);
+
+        // Clear caches
+        if (global.gc) {
+            global.gc();
+        }
+
+        const final = Math.floor(process.memoryUsage().rss / 1024 / 1024);
+        await ctx.reply(`Cleanup complete. Current memory: ${final} MB. Saving: ${initial - final} MB.`);
     });
 
     // Handle text messages

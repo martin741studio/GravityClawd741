@@ -115,7 +115,8 @@ INSTRUCTIONS:
         const isRailway = !!process.env.RAILWAY_ENVIRONMENT_NAME || !!process.env.RAILWAY_STATIC_URL;
         const env = isRailway ? 'RAILWAY (Cloud)' : 'LOCAL (MacBook)';
         const dbPath = process.env.DB_PATH || (isRailway ? '/data/memory.db' : 'data/memory.db');
-        const version = '1.1.3 (Shield++)';
+        const version = '1.1.4 (Shield++)';
+        const mem = Math.floor(process.memoryUsage().rss / 1024 / 1024);
 
         let dbStatus = 'Disconnected';
         let msgCount = 0;
@@ -166,6 +167,7 @@ INSTRUCTIONS:
             `-------------------`,
             `Version: ${version}`,
             `Environment: ${env}`,
+            `Memory Usage: ${mem} MB`,
             `Database: ${dbStatus}`,
             `Active LLM Fallback: ${activeProviders.join(' -> ') || 'None'}`,
             `-------------------`,

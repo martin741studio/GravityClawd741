@@ -38,10 +38,17 @@ async function main() {
     });
 
     const relevantFiles = files.filter((f: string) => EXTENSIONS.includes(path.extname(f)));
-    console.log(`found ${relevantFiles.length} relevant files.`);
+    console.log(`Found ${relevantFiles.length} relevant files. Processing in batches...`);
 
-    for (const file of relevantFiles) {
-        await processFile(file, pineconeIndex);
+    // Process in small batches to avoid heap overflow
+    const BATCH_SIZE = 5;
+    for (let i = 0; i < relevantFiles.length; i += BATCH_SIZE) {
+        const batch = relevantFiles.slice(i, i + BATCH_SIZE);
+        console.log(`[Indexer] Processing batch ${Math.floor(i / BATCH_SIZE) + 1}/${Math.ceil(relevantFiles.length / BATCH_SIZE)}...`);
+        await Promise.all(batch.map(file => processFile(file, pineconeIndex)));
+
+        // Brief pause for GC to catch up
+        if (global.gc) global.gc();
     }
 
     console.log('✅ Indexing complete!');
