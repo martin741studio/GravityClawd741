@@ -83,13 +83,14 @@ export const speakTool: Tool = {
             // We use ffmpeg to convert from ElevenLabs MP3.
             const oggPath = filePath.replace('.mp3', '.ogg');
 
-            await new Promise<void>((resolve, reject) => {
-                const { exec } = require('child_process');
-                exec(`ffmpeg -i "${filePath}" -c:a libopus "${oggPath}"`, (error: any) => {
-                    if (error) reject(error);
-                    else resolve();
-                });
-            });
+            try {
+                console.log(`[SpeakTool] Converting ${filePath} to ${oggPath}...`);
+                await execAsync(`ffmpeg -i "${filePath}" -c:a libopus "${oggPath}"`);
+                console.log(`[SpeakTool] Conversion successful.`);
+            } catch (convError: any) {
+                console.error('[SpeakTool] ffmpeg conversion failed:', convError);
+                throw new Error(`Audio conversion failed. Ensure ffmpeg is installed.`);
+            }
 
             await ctx.replyWithVoice(new InputFile(oggPath));
 
