@@ -115,7 +115,7 @@ INSTRUCTIONS:
         const isRailway = !!process.env.RAILWAY_ENVIRONMENT_NAME || !!process.env.RAILWAY_STATIC_URL;
         const env = isRailway ? 'RAILWAY (Cloud)' : 'LOCAL (MacBook)';
         const dbPath = process.env.DB_PATH || (isRailway ? '/data/memory.db' : 'data/memory.db');
-        const version = '1.1.2 (Shield+)';
+        const version = '1.1.3 (Shield++)';
 
         let dbStatus = 'Disconnected';
         let msgCount = 0;

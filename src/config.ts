@@ -26,21 +26,37 @@ const getEnv = (key: string): string => {
     return value;
 };
 
+// Resilient fallback for provider keys
+const getProviderKey = (primary: string, fallbacks: string[]): string | undefined => {
+    if (process.env[primary]) return process.env[primary];
+    for (const fallback of fallbacks) {
+        if (process.env[fallback]) {
+            console.log(`[Config] Using fallback env var for ${primary}: ${fallback}`);
+            return process.env[fallback];
+        }
+    }
+    return undefined;
+};
+
 export const config: Config = {
     telegramBotToken: getEnv('TELEGRAM_BOT_TOKEN'),
     geminiApiKey: getEnv('GEMINI_API_KEY'),
     allowedUserId: parseInt(getEnv('ALLOWED_USER_ID'), 10),
     elevenlabsApiKey: process.env.ELEVENLABS_API_KEY || '',
     groqApiKey: process.env.GROQ_API_KEY || '',
-    openrouterApiKey: process.env.OPENROUTER_API_KEY,
-    openaiApiKey: process.env.OPENAI_API_KEY,
+    openrouterApiKey: getProviderKey('OPENROUTER_API_KEY', ['OPENROUTER_KEY', 'OR_API_KEY']),
+    openaiApiKey: getProviderKey('OPENAI_API_KEY', ['OPENAI_KEY', 'OA_API_KEY']),
     pineconeApiKey: process.env.PINECONE_API_KEY || '',
     pineconeIndex: process.env.PINECONE_INDEX || 'gravity-claw',
     braveSearchApiKey: process.env.BRAVE_SEARCH_API_KEY || '',
     encryptionKey: process.env.ENCRYPTION_KEY || '',
 };
 
-console.log(`[Config] Loaded ElevenLabs Key: ${config.elevenlabsApiKey ? config.elevenlabsApiKey.substring(0, 5) + '...' : 'MISSING'}`);
+console.log(`[Config] Provider Check:`);
+console.log(`- Gemini: ENABLED`);
+console.log(`- OpenAI: ${config.openaiApiKey ? 'ENABLED' : 'MISSING'}`);
+console.log(`- OpenRouter: ${config.openrouterApiKey ? 'ENABLED' : 'MISSING'}`);
+console.log(`- ElevenLabs: ${config.elevenlabsApiKey ? 'ENABLED' : 'MISSING'}`);
 
 if (isNaN(config.allowedUserId)) {
     throw new Error('ALLOWED_USER_ID must be a number');
