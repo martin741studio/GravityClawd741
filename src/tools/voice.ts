@@ -76,10 +76,23 @@ export const speakTool: Tool = {
             }
 
             // Send to Telegram
-            await ctx.replyWithVoice(new InputFile(filePath));
+            // CRITICAL: Telegram "Voice Notes" must be OGG/OPUS. 
+            // We use ffmpeg to convert from ElevenLabs MP3.
+            const oggPath = filePath.replace('.mp3', '.ogg');
+
+            await new Promise<void>((resolve, reject) => {
+                const { exec } = require('child_process');
+                exec(`ffmpeg -i "${filePath}" -c:a libopus "${oggPath}"`, (error: any) => {
+                    if (error) reject(error);
+                    else resolve();
+                });
+            });
+
+            await ctx.replyWithVoice(new InputFile(oggPath));
 
             // Cleanup
-            fs.unlinkSync(filePath);
+            if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+            if (fs.existsSync(oggPath)) fs.unlinkSync(oggPath);
 
             return `(Voice message sent containing: "${args.text}")`;
 

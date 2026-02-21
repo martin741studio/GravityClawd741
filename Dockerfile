@@ -14,6 +14,9 @@ FROM node:20-slim
 
 WORKDIR /app
 
+# Install ffmpeg for audio conversion
+RUN apt-get update && apt-get install -y ffmpeg && rm -rf /var/lib/apt/lists/*
+
 # Install production dependencies only if needed
 # or just copy node_modules from builder
 COPY --from=builder /app/package*.json ./
