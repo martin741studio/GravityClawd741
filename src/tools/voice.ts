@@ -2,9 +2,12 @@ import { ElevenLabsClient } from 'elevenlabs';
 import { config } from '../config.js';
 import * as fs from 'fs';
 import * as path from 'path';
-// import { v4 as uuidv4 } from 'uuid'; // Removed as unused
 import { Tool } from './registry.js';
 import { Context, InputFile } from 'grammy';
+import { exec } from 'child_process';
+import { promisify } from 'util';
+
+const execAsync = promisify(exec);
 
 const client = new ElevenLabsClient({ apiKey: config.elevenlabsApiKey });
 

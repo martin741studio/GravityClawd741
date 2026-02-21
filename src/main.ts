@@ -24,7 +24,7 @@ async function main() {
     // 0. Cloud Health Check Server (Level 18 Orbit Stabilizer)
     const app = express();
     const port = process.env.PORT || 8080;
-    app.get('/', (req, res) => res.send('Gravity Claw Shield++ v1.1.5'));
+    app.get('/', (req, res) => res.send('Gravity Claw Shield++ v1.1.6'));
     app.listen(Number(port), '0.0.0.0', () => console.log(`[Status] Health Check Server live on 0.0.0.0:${port}`));
 
     // 1. Initialize Database (FATAL if fails)
@@ -42,7 +42,7 @@ async function main() {
             const isRailway = !!process.env.RAILWAY_ENVIRONMENT_NAME || !!process.env.RAILWAY_STATIC_URL;
             const env = isRailway ? 'RAILWAY (Cloud)' : 'LOCAL (MacBook)';
             const dbSource = process.env.DB_PATH || (isRailway ? '/data/memory.db' : 'data/memory.db');
-            const version = '1.1.5 (Shield++)';
+            const version = '1.1.6 (Shield++)';
 
             let dbStatus = 'Disconnected';
             let msgCount = 0;

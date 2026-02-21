@@ -57,15 +57,12 @@ Do NOT notify the user yet.`;
      * Proactively checks for system anomalies.
      */
     async checkSystemHealth(): Promise<string | null> {
-        // Mock health checks for now
-        const checks = [
-            { name: 'Memory', threshold: 0.9, val: process.memoryUsage().heapUsed / process.memoryUsage().heapTotal },
-        ];
+        const rss = process.memoryUsage().rss;
+        const rssMb = rss / 1024 / 1024;
+        const LIMIT_MB = 480; // Alert before hitting 512MB Railway hard cap
 
-        for (const check of checks) {
-            if (check.val > check.threshold) {
-                return `SYSTEM ALERT: ${check.name} usage at ${(check.val * 100).toFixed(1)}%. I recommend optimization.`;
-            }
+        if (rssMb > LIMIT_MB) {
+            return `SYSTEM ALERT: Physical Memory (RSS) is at ${rssMb.toFixed(1)} MB. I recommend optimization or a restart.`;
         }
         return null;
     }
