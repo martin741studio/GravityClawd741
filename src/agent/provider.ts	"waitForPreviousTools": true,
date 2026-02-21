@@ -1,0 +1,14 @@
+import { Tool } from '../tools/registry.js';
+
+export interface LLMResponse {
+    text: () => string;
+    candidates?: any[];
+}
+
+export interface LLMResult {
+    response: LLMResponse;
+}
+
+export interface LLMProvider {
+    sendMessage(message: string | any[]): Promise<LLMResult>;
+}

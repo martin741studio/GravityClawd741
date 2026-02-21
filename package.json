@@ -1,0 +1,54 @@
+{
+    "name": "gravity-claw",
+    "version": "1.1.1",
+    "type": "module",
+    "description": "A lean, secure, local-first personal AI agent.",
+    "main": "dist/main.js",
+    "scripts": {
+        "dev": "tsx watch src/main.ts",
+        "build": "tsc",
+        "start": "node dist/main.js",
+        "db:push": "drizzle-kit push",
+        "db:studio": "drizzle-kit studio",
+        "memory:index": "tsx src/memory/indexer.ts",
+        "lint": "eslint src/**/*.ts",
+        "format": "prettier --write src/**/*.ts"
+    },
+    "keywords": [
+        "ai",
+        "agent",
+        "telegram",
+        "gemini",
+        "local-first"
+    ],
+    "author": "Martin Drendel",
+    "license": "MIT",
+    "dependencies": {
+        "@google/generative-ai": "^0.14.0",
+        "@pinecone-database/pinecone": "^7.1.0",
+        "@types/node-fetch": "^2.6.13",
+        "@types/uuid": "^10.0.0",
+        "better-sqlite3": "^12.6.2",
+        "dotenv": "^16.4.1",
+        "drizzle-kit": "^0.31.9",
+        "drizzle-orm": "^0.45.1",
+        "elevenlabs": "^1.59.0",
+        "express": "^5.2.1",
+        "glob": "^13.0.6",
+        "grammy": "^1.21.1",
+        "groq-sdk": "^0.37.0",
+        "node-cron": "^4.2.1",
+        "node-fetch": "^3.3.2",
+        "openai": "^6.22.0",
+        "uuid": "^13.0.0"
+    },
+    "devDependencies": {
+        "@types/better-sqlite3": "^7.6.13",
+        "@types/express": "^5.0.6",
+        "@types/glob": "^8.1.0",
+        "@types/node": "^20.11.16",
+        "@types/node-cron": "^3.0.11",
+        "tsx": "^4.21.0",
+        "typescript": "^5.3.3"
+    }
+}

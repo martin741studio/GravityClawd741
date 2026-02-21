@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gravity Claw | Live Canvas</title>
+    <style>
+        :root {
+            --bg: #0a0a0c;
+            --surface: #141417;
+            --primary: #6366f1;
+            --text: #e2e8f0;
+            --text-dim: #94a3b8;
+            --accent: #10b981;
+        }
+
+        body {
+            margin: 0;
+            font-family: 'Inter', -apple-system, system-ui, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            overflow-x: hidden;
+        }
+
+        .canvas-bg {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: radial-gradient(circle at 50% 50%, #1e1b4b 0%, #0a0a0c 100%);
+            z-index: -1;
+            opacity: 0.5;
+        }
+
+        header {
+            padding: 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(10px);
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+
+        .logo {
+            font-size: 1.5rem;
+            font-weight: 800;
+            letter-spacing: -0.05em;
+            background: linear-gradient(to right, #818cf8, #c084fc);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .status-badge {
+            padding: 0.5rem 1rem;
+            border-radius: 99px;
+            background: rgba(16, 185, 129, 0.1);
+            color: var(--accent);
+            font-size: 0.75rem;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            background: var(--accent);
+            border-radius: 50%;
+            box-shadow: 0 0 10px var(--accent);
+            animation: pulse 2s infinite;
+        }
+
+        main {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 2rem;
+        }
+
+        .card {
+            background: var(--surface);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            border-radius: 1.5rem;
+            padding: 2rem;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+        }
+
+        h2 {
+            margin-top: 0;
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: var(--text-dim);
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+        }
+
+        .workflow-item {
+            padding: 1.5rem;
+            border-radius: 1rem;
+            background: rgba(255, 255, 255, 0.02);
+            margin-bottom: 1rem;
+            border-left: 4px solid var(--primary);
+        }
+
+        .workflow-header {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 0.5rem;
+        }
+
+        .workflow-name {
+            font-weight: 700;
+            color: #fff;
+        }
+
+        .workflow-status {
+            font-size: 0.75rem;
+            padding: 0.2rem 0.6rem;
+            border-radius: 4px;
+            background: var(--primary);
+            color: #fff;
+        }
+
+        .usage-list {
+            list-style: none;
+            padding: 0;
+        }
+
+        .usage-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 0.75rem 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            font-size: 0.875rem;
+        }
+
+        .model-name {
+            color: var(--primary);
+            font-weight: 600;
+        }
+
+        .token-count {
+            color: var(--text-dim);
+        }
+
+        @keyframes pulse {
+            0% {
+                opacity: 1;
+                transform: scale(1);
+            }
+
+            50% {
+                opacity: 0.5;
+                transform: scale(1.2);
+            }
+
+            100% {
+                opacity: 1;
+                transform: scale(1);
+            }
+        }
+
+        @media (max-width: 900px) {
+            main {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="canvas-bg"></div>
+    <header>
+        <div class="logo">GRAVITY CLAW</div>
+        <div class="status-badge">
+            <div class="status-dot"></div>
+            LIVE CANVAS ACTIVE
+        </div>
+    </header>
+
+    <main>
+        <section class="card">
+            <h2>Active Agent Workflows</h2>
+            <div id="workflow-container">
+                <div class="workflow-item">
+                    <div class="workflow-header">
+                        <span class="workflow-name">Waiting for data...</span>
+                        <span class="workflow-status">IDLE</span>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section class="card">
+            <h2>LLM Usage History</h2>
+            <div class="usage-list" id="usage-container">
+                <!-- Usage items will be injected here -->
+            </div>
+        </section>
+    </main>
+
+    <script>
+        async function updateDashboard() {
+            try {
+                const res = await fetch('/api/status');
+                const data = await res.json();
+
+                // Update Workflows
+                const workflowContainer = document.getElementById('workflow-container');
+                workflowContainer.innerHTML = data.workflows.map(w => `
+                    <div class="workflow-item">
+                        <div class="workflow-header">
+                            <span class="workflow-name">${w.name}</span>
+                            <span class="workflow-status">${w.status.toUpperCase()}</span>
+                        </div>
+                        <div style="font-size: 0.8rem; color: #94a3b8">Workflow #${w.id} • Step ${w.currentStep}</div>
+                    </div>
+                `).join('') || '<p>No active workflows.</p>';
+
+                // Update Usage
+                const usageContainer = document.getElementById('usage-container');
+                usageContainer.innerHTML = data.usage.map(u => `
+                    <div class="usage-item">
+                        <span class="model-name">${u.model}</span>
+                        <span class="token-count">${u.totalTokens} t • $${u.costUsd || '0.00'}</span>
+                    </div>
+                `).join('');
+
+            } catch (err) {
+                console.error('Update failed:', err);
+            }
+        }
+
+        setInterval(updateDashboard, 5000);
+        updateDashboard();
+    </script>
+</body>
+
+</html>
