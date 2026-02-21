@@ -32,11 +32,11 @@ export const speakTool: Tool = {
         required: ['text'],
     },
     execute: async (args: { text: string, tone?: string }, ctx?: Context) => {
-        const maskedKey = config.elevenlabsApiKey ? config.elevenlabsApiKey.substring(0, 5) + '...' : 'MISSING';
-        console.log(`[SpeakTool] Executing with key: ${maskedKey}`);
+        const maskedKey = config.elevenlabsApiKey ? `${config.elevenlabsApiKey.substring(0, 5)}...${config.elevenlabsApiKey.substring(config.elevenlabsApiKey.length - 4)}` : 'MISSING';
+        console.log(`[SpeakTool] Executing with key (Len: ${config.elevenlabsApiKey?.length}): ${maskedKey}`);
 
-        if (!config.elevenlabsApiKey) {
-            return 'Error: ElevenLabs API Key is missing in configuration.';
+        if (!config.elevenlabsApiKey || config.elevenlabsApiKey.length < 10) {
+            return 'Error: ElevenLabs API Key is missing or invalid in configuration.';
         }
 
         if (!ctx) {
@@ -89,7 +89,7 @@ export const speakTool: Tool = {
                 console.log(`[SpeakTool] Conversion successful.`);
             } catch (convError: any) {
                 console.error('[SpeakTool] ffmpeg conversion failed:', convError);
-                throw new Error(`Audio conversion failed. Ensure ffmpeg is installed.`);
+                throw new Error(`Audio conversion failed. Ensure ffmpeg is installed on the server.`);
             }
 
             await ctx.replyWithVoice(new InputFile(oggPath));
@@ -101,9 +101,10 @@ export const speakTool: Tool = {
             return `(Voice message sent containing: "${args.text}")`;
 
         } catch (error: any) {
-            console.error('Error generating voice:', error);
-            // Return error to LLM so it knows it failed
-            return `Error generating voice message: ${error.message || error}`;
+            console.error('[SpeakTool] ERROR:', error);
+            // Return detailed error to LLM so it can inform the user or fallback to text
+            const errorMsg = error.message || String(error);
+            return `Error generating voice message: ${errorMsg}. Please fallback to text and inform the user of the technical issue.`;
         }
     }
 };

@@ -441,16 +441,20 @@ If nothing found, return {"entities":[], "relationships":[]}.`;
                 cost = (promptTokens * 0.075 + completionTokens * 0.3) / 1000000;
             }
 
+            const pTokens = promptTokens || 0;
+            const cTokens = completionTokens || 0;
+            const tTokens = totalTokens || (pTokens + cTokens);
+
             await db.insert(usage).values({
                 timestamp: Date.now(),
                 model: modelName,
-                promptTokens,
-                completionTokens,
-                totalTokens,
+                promptTokens: pTokens,
+                completionTokens: cTokens,
+                totalTokens: tTokens,
                 costUsd: cost.toFixed(6)
             });
 
-            console.log(`[Usage] Logged ${totalTokens} tokens for ${modelName} (~$${cost.toFixed(6)})`);
+            console.log(`[Usage] Logged ${tTokens} tokens for ${modelName} (~$${cost.toFixed(6)})`);
         } catch (error) {
             console.error('[Usage] Failed to log usage:', error);
         }

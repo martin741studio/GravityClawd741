@@ -64,7 +64,7 @@ export class GeminiProvider implements LLMProvider {
         }
 
         const result = await chat.sendMessage(payload as any);
-        const usage = (result.response as any).usageMetadata;
+        const usage = (result.response as any)?.usageMetadata || null;
 
         return {
             response: {
