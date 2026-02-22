@@ -10,31 +10,20 @@ export class FailoverProvider implements LLMProvider {
     constructor(private providers: { name: string, provider: LLMProvider }[]) { }
 
     async sendMessage(message: string | any[] | MultimodalMessage, options?: { modelPreference?: 'high' | 'efficient' }): Promise<LLMResult> {
-        let lastError: any = null;
+        const errors: string[] = [];
         for (const { name, provider } of this.providers) {
             try {
                 return await provider.sendMessage(message, options);
             } catch (error: any) {
-                const errorMsg = error.message.toLowerCase();
-                console.warn(`[LLM] ${name} failed:`, error.message);
-                lastError = error;
+                const errorMsg = error.message || String(error);
+                console.warn(`[LLM] ${name} failed:`, errorMsg);
+                errors.push(`${name}: ${errorMsg}`);
 
-                // If it's a quota, rate limit, or resource exhaustion error, we DEFINITELY skip to the next
-                if (
-                    errorMsg.includes('quota') ||
-                    errorMsg.includes('rate_limit') ||
-                    errorMsg.includes('429') ||
-                    errorMsg.includes('exhausted') ||
-                    errorMsg.includes('404')
-                ) {
-                    continue;
-                }
-
-                // For other errors, we continue anyway to try other providers
+                // Continue to next provider regardless of error type for maximum resilience
                 continue;
             }
         }
-        throw new Error(`All LLM providers failed. Last error: ${lastError?.message}`);
+        throw new Error(`All LLM providers failed:\n${errors.join('\n')}`);
     }
 }
 
@@ -48,21 +37,7 @@ export class LLM {
     constructor(tools: Tool[]) {
         const providers: { name: string, provider: LLMProvider }[] = [];
 
-        // 1. Primary Model: Gemini (Handles "Easy Requests" as main model)
-        providers.push({
-            name: 'Gemini (Flash)',
-            provider: new GeminiProvider(tools)
-        });
-
-        // 2. Secondary/Backfall: OpenAI
-        if (config.openaiApiKey) {
-            providers.push({
-                name: 'OpenAI (GPT-4o)',
-                provider: new OpenAIProvider(tools, config.openaiApiKey, 'gpt-4o')
-            });
-        }
-
-        // 3. Tertiary/Backfall: OpenRouter
+        // 1. Primary: OpenRouter (Claude/GPT-4o via aggregator)
         if (config.openrouterApiKey) {
             providers.push({
                 name: 'OpenRouter (Claude)',
@@ -70,7 +45,21 @@ export class LLM {
             });
         }
 
-        console.log(`[LLM] Initializing with ${providers.length} providers (Gemini Primary).`);
+        // 2. Secondary/Fallback: Gemini (Flash)
+        providers.push({
+            name: 'Gemini (Flash)',
+            provider: new GeminiProvider(tools)
+        });
+
+        // 3. Tertiary/Fallback: OpenAI
+        if (config.openaiApiKey) {
+            providers.push({
+                name: 'OpenAI (GPT-4o)',
+                provider: new OpenAIProvider(tools, config.openaiApiKey, 'gpt-4o')
+            });
+        }
+
+        console.log(`[LLM] Initializing with ${providers.length} providers (OpenRouter Primary).`);
         this.chat = new FailoverProvider(providers);
     }
 }

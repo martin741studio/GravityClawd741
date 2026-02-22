@@ -119,8 +119,8 @@ export class SchedulerManager {
         console.log('[Scheduler] Generating Evening Recap...');
         try {
             // A. Get activity from the last 14 hours (roughly today)
-            const today = Date.now() - (14 * 60 * 60 * 1000);
-            const messages = await memoryManager.getRecentContext(30); // Get a larger slice for the day
+            // Use 15 instead of 30 to reduce token pressure while still capturing the core of the day
+            const messages = await memoryManager.getRecentContext(15);
 
             // B. Generate Prompt
             const prompt = `You are Gravity Claw. It is evening. Prepare a "Daily Recap" for the user.
@@ -135,7 +135,11 @@ export class SchedulerManager {
             
             Keep it warm but professional. Use Markdown.`;
 
-            const response = await this.agent.run(prompt);
+            // C. Truncate prompt if extremely long (Safety Guard)
+            // Roughly 4 tokens per char, so 40k chars ~ 10k tokens
+            const safePrompt = prompt.length > 40000 ? prompt.substring(0, 40000) + '... [TRUNCATED DUE TO LENGTH]' : prompt;
+
+            const response = await this.agent.run(safePrompt);
 
             // C. Send to Telegram
             if (this.bot) {
