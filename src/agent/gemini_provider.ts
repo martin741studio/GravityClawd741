@@ -5,51 +5,65 @@ import { config } from '../config.js';
 import { MultimodalMessage, isMultimodal } from './multimodal.js';
 
 export class GeminiProvider implements LLMProvider {
-    private chatFlash: ChatSession;
-    private chatPro: ChatSession;
-    private modelFlash: any;
-    private modelPro: any;
+    private genAI: GoogleGenerativeAI;
+    private modelName: string;
+    private tools: Tool[];
 
-    constructor(tools: Tool[]) {
-        const genAI = new GoogleGenerativeAI(config.geminiApiKey);
+    constructor(tools: Tool[], tier: 'flash' | 'pro' = 'flash') {
+        this.genAI = new GoogleGenerativeAI(config.geminiApiKey);
+        this.modelName = tier === 'pro' ? 'gemini-1.5-pro' : 'gemini-1.5-flash';
+        this.tools = tools;
+    }
 
-        const functionDeclarations = tools.map(tool => ({
+    async sendMessage(message: string | any[] | MultimodalMessage, options?: { history?: any[], systemPrompt?: string }): Promise<LLMResult> {
+        const functionDeclarations = this.tools.map(tool => ({
             name: tool.name,
             description: tool.description,
             parameters: tool.parameters as any,
         }));
 
-        // Efficient Tier (Updated to resolve 404)
-        const flashOptions: any = { model: 'gemini-2.0-flash' };
-        const proOptions: any = { model: 'gemini-2.0-pro-exp-02-05' };
+        const modelOptions: any = {
+            model: this.modelName
+        };
 
-        if (functionDeclarations.length > 0) {
-            flashOptions.tools = [{ functionDeclarations }];
-            proOptions.tools = [{ functionDeclarations }];
+        if (options?.systemPrompt) {
+            modelOptions.systemInstruction = options.systemPrompt;
         }
 
-        this.modelFlash = genAI.getGenerativeModel(flashOptions);
-        this.modelPro = genAI.getGenerativeModel(proOptions);
+        if (functionDeclarations.length > 0) {
+            modelOptions.tools = [{ functionDeclarations }];
+        }
 
-        const initialHistory = [
-            {
-                role: 'user',
-                parts: [{ text: 'You are Gravity Claw, a helpful personal AI assistant. You run locally on my machine. You have access to tools to help the user.' }],
-            },
-            {
-                role: 'model',
-                parts: [{ text: 'Understood. I am Gravity Claw. I am ready to help.' }],
-            },
-        ];
+        const model = this.genAI.getGenerativeModel(modelOptions);
 
-        this.chatFlash = this.modelFlash.startChat({ history: initialHistory });
-        this.chatPro = this.modelPro.startChat({ history: initialHistory });
-    }
+        // Gemini history MUST start with user, and cannot contain 'system' role
+        const history = (options?.history || [])
+            .filter(m => m.role !== 'system')
+            .map(m => {
+                if (m.role === 'tool') {
+                    // Gemini expects 'function' role for tool responses in history
+                    return {
+                        role: 'function',
+                        parts: [{ functionResponse: { name: m.tool_call_id, response: { content: m.content } } }]
+                    };
+                }
+                if (m.role === 'assistant') {
+                    const parts: any[] = [];
+                    if (m.content) parts.push({ text: m.content });
+                    if (m.tool_calls) {
+                        parts.push(...m.tool_calls.map((tc: any) => ({
+                            functionCall: {
+                                name: tc.function.name,
+                                args: JSON.parse(tc.function.arguments)
+                            }
+                        })));
+                    }
+                    return { role: 'model', parts };
+                }
+                return { role: 'user', parts: [{ text: m.content }] };
+            });
 
-    async sendMessage(message: string | any[] | MultimodalMessage, options?: { modelPreference?: 'high' | 'efficient' }): Promise<LLMResult> {
-        const preference = options?.modelPreference || 'efficient';
-        const chat = preference === 'high' ? this.chatPro : this.chatFlash;
-        const modelName = preference === 'high' ? 'gemini-2.0-pro-exp-02-05' : 'gemini-2.0-flash';
+        const chat = model.startChat({ history });
 
         let payload: string | Part[] | any[];
 
@@ -63,20 +77,25 @@ export class GeminiProvider implements LLMProvider {
             payload = message as any;
         }
 
-        const result = await chat.sendMessage(payload as any);
-        const usage = (result.response as any)?.usageMetadata || null;
+        try {
+            const result = await chat.sendMessage(payload as any);
+            const usage = (result.response as any)?.usageMetadata || null;
 
-        return {
-            response: {
-                text: () => result.response.text(),
-                candidates: result.response.candidates
-            },
-            usage: usage ? {
-                promptTokens: usage.promptTokenCount,
-                completionTokens: usage.candidatesTokenCount,
-                totalTokens: usage.totalTokenCount
-            } : undefined,
-            model: modelName
-        };
+            return {
+                response: {
+                    text: () => result.response.text(),
+                    candidates: result.response.candidates
+                },
+                usage: usage ? {
+                    promptTokens: usage.promptTokenCount,
+                    completionTokens: usage.candidatesTokenCount,
+                    totalTokens: usage.totalTokenCount
+                } : undefined,
+                model: this.modelName
+            };
+        } catch (error: any) {
+            console.error(`[Gemini:${this.modelName}] Error:`, error.message || error);
+            throw error;
+        }
     }
 }

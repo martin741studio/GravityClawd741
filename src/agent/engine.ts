@@ -52,22 +52,35 @@ INSTRUCTIONS:
 - If you use 'speak', accompany it with text.
 - Be concise, bold, and helpful.`;
 
-            let fullPayload: string | MultimodalMessage;
+            // Initialize local history for this turn
+            const sharedHistory: any[] = [
+                { role: 'system', content: systemPrompt }
+            ];
+
+            let userPayload: string | any[];
             if (isMulti) {
-                const multiMsg = userMessage as MultimodalMessage;
-                const textIdx = multiMsg.findIndex(p => p.text);
-                if (textIdx !== -1) {
-                    multiMsg[textIdx].text = `${systemPrompt}\n\nUser: ${multiMsg[textIdx].text}`;
-                } else {
-                    multiMsg.unshift({ text: systemPrompt });
-                }
-                fullPayload = multiMsg;
+                userPayload = (userMessage as MultimodalMessage).map(p => {
+                    if (p.text) return { text: p.text };
+                    if (p.inlineData) return { inlineData: p.inlineData };
+                    return null;
+                }).filter(Boolean);
             } else {
-                fullPayload = `${systemPrompt}\n\nUser: ${userMessage}`;
+                userPayload = userMessage;
             }
 
             // 2. Initial Request
-            let result = await this.llm.chat.sendMessage(fullPayload);
+            let result = await this.llm.chat.sendMessage(userPayload as any, {
+                history: sharedHistory.filter(m => m.role !== 'system'),
+                systemPrompt: systemPrompt
+            });
+
+            // Sync history with user message
+            if (typeof userPayload === 'string') {
+                sharedHistory.push({ role: 'user', content: userPayload });
+            } else {
+                sharedHistory.push({ role: 'user', content: userPayload }); // Simplified for Gemini/OpenAI compatibility
+            }
+
             if (result.usage && result.model) {
                 memoryManager.logUsage(result.model, result.usage.promptTokens, result.usage.completionTokens, result.usage.totalTokens).catch(console.error);
             }
@@ -79,6 +92,21 @@ INSTRUCTIONS:
             while (loopCount < MAX_LOOPS) {
                 const response = result.response;
                 const parts = response.candidates?.[0]?.content?.parts || [];
+
+                // Track assistant parts in shared history
+                sharedHistory.push({
+                    role: 'assistant',
+                    content: response.text() || null,
+                    tool_calls: (parts as any).filter((p: any) => p.functionCall).map((p: any) => ({
+                        id: p.functionCall.id || p.functionCall.name,
+                        type: 'function',
+                        function: {
+                            name: p.functionCall.name,
+                            arguments: JSON.stringify(p.functionCall.args)
+                        }
+                    }))
+                });
+
                 const functionCalls = parts
                     .filter((part: any) => part.functionCall)
                     .map((part: any) => part.functionCall);
@@ -94,8 +122,22 @@ INSTRUCTIONS:
                 // Execute Tools
                 const functionResponses = await this.executor.executeAll(functionCalls, ctx);
 
-                // Feedback Loop
-                result = await this.llm.chat.sendMessage(functionResponses as any);
+                // Add tool responses to history
+                for (const toolRes of functionResponses) {
+                    sharedHistory.push({
+                        role: 'tool',
+                        tool_call_id: toolRes.functionResponse.id || toolRes.functionResponse.name,
+                        content: typeof toolRes.functionResponse.response.output === 'string'
+                            ? toolRes.functionResponse.response.output
+                            : JSON.stringify(toolRes.functionResponse.response.output || toolRes.functionResponse.response.error)
+                    });
+                }
+
+                // Feedback Loop - Pass full shared history
+                result = await this.llm.chat.sendMessage(functionResponses as any, {
+                    history: sharedHistory,
+                    systemPrompt: systemPrompt
+                });
                 if (result.usage && result.model) {
                     memoryManager.logUsage(result.model, result.usage.promptTokens, result.usage.completionTokens, result.usage.totalTokens).catch(console.error);
                 }
