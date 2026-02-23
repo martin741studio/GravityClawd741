@@ -19,5 +19,5 @@ export interface LLMResult {
 }
 
 export interface LLMProvider {
-    sendMessage(message: string | any[] | MultimodalMessage, options?: { modelPreference?: 'high' | 'efficient' }): Promise<LLMResult>;
+    sendMessage(message: string | any[] | MultimodalMessage, options?: { modelPreference?: 'high' | 'efficient', history?: any[], systemPrompt?: string }): Promise<LLMResult>;
 }

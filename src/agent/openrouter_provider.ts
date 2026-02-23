@@ -1,5 +1,6 @@
 import { LLMProvider, LLMResult } from './provider.js';
 import { Tool } from '../tools/registry.js';
+import { MultimodalMessage, isMultimodal } from './multimodal.js';
 // OpenRouter uses standard OpenAI-like fetching for chat completions
 import fetch from 'node-fetch';
 
