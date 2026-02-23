@@ -122,11 +122,21 @@ export class SchedulerManager {
             // Use 15 instead of 30 to reduce token pressure while still capturing the core of the day
             const messages = await memoryManager.getRecentContext(15);
 
+            // C. Prune each message to prevent token blowout (e.g., massive tool outputs)
+            const prunedActivity = messages.map((m: any) => {
+                const content = m.content || '';
+                const role = m.role || 'user';
+                const safeContent = content.length > 2000
+                    ? content.substring(0, 2000) + '... [CONTENT TRUNCATED]'
+                    : content;
+                return `${role}: ${safeContent}`;
+            }).join('\n');
+
             // B. Generate Prompt
             const prompt = `You are Gravity Claw. It is evening. Prepare a "Daily Recap" for the user.
             
             RECENT ACTIVITY:
-            ${messages.map((m: any) => `${m.role}: ${m.content}`).join('\n')}
+            ${prunedActivity}
             
             INSTRUCTIONS:
             1. **Accomplishments**: List the key things we did today.
@@ -135,9 +145,9 @@ export class SchedulerManager {
             
             Keep it warm but professional. Use Markdown.`;
 
-            // C. Truncate prompt if extremely long (Safety Guard)
-            // Roughly 4 tokens per char, so 40k chars ~ 10k tokens
-            const safePrompt = prompt.length > 40000 ? prompt.substring(0, 40000) + '... [TRUNCATED DUE TO LENGTH]' : prompt;
+            // C. Truncate prompt if extremely long (Safety Guard for 30k token limit)
+            // 20k chars is very safe for a 30k token Organization limit
+            const safePrompt = prompt.length > 20000 ? prompt.substring(0, 20000) + '... [TRUNCATED DUE TO TOTAL LENGTH]' : prompt;
 
             const response = await this.agent.run(safePrompt);
 
