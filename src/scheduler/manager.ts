@@ -15,6 +15,22 @@ export class SchedulerManager {
         this.agent = new Agent();
     }
 
+    private pruneContext(messages: any[], maxTotalChars: number = 20000): string {
+        const pruned = messages.map((m: any) => {
+            const content = m.content || '';
+            const role = m.role || 'user';
+            const safeContent = content.length > 2000
+                ? content.substring(0, 2000) + '... [CONTENT TRUNCATED]'
+                : content;
+            return `${role}: ${safeContent}`;
+        }).join('\n');
+
+        if (pruned.length > maxTotalChars) {
+            return pruned.substring(0, maxTotalChars) + '... [TOTAL CONTEXT TRUNCATED]';
+        }
+        return pruned;
+    }
+
     // Set bot instance for proactive messaging
     setBot(bot: any) {
         this.bot = bot;
@@ -70,9 +86,10 @@ export class SchedulerManager {
         try {
             // A. Gather context (tasks + history)
             let taskList = 'No task list found.';
-            const taskPath = process.env.TASK_LIST_PATH || path.resolve(process.cwd(), '../.gemini/antigravity/brain/ad92f87c-acfb-4be0-9c23-81116942657a/task.md');
+            const taskPath = path.resolve(process.cwd(), '.gemini/antigravity/brain/94a7b9ab-74a8-4873-97b8-b6ac1c1b68ee/task.md');
             if (fs.existsSync(taskPath)) {
                 taskList = fs.readFileSync(taskPath, 'utf8');
+                if (taskList.length > 5000) taskList = taskList.substring(0, 5000) + '... [TASK LIST TRUNCATED]';
             }
 
             const recentContext = await memoryManager.getRecentContext(10);
@@ -87,7 +104,7 @@ export class SchedulerManager {
             
             RECENT CONTEXT:
             ${summary ? `[PREV SUMMARY]: ${summary.content}` : ''}
-            ${recentContext.map((m: any) => `${m.role}: ${m.content}`).join('\n')}
+            ${this.pruneContext(recentContext)}
             
             INSTRUCTIONS:
             1. Identify ONE uncompleted task that seems high-priority or where the user might be stuck.
@@ -121,16 +138,7 @@ export class SchedulerManager {
             // A. Get activity from the last 14 hours (roughly today)
             // Use 15 instead of 30 to reduce token pressure while still capturing the core of the day
             const messages = await memoryManager.getRecentContext(15);
-
-            // C. Prune each message to prevent token blowout (e.g., massive tool outputs)
-            const prunedActivity = messages.map((m: any) => {
-                const content = m.content || '';
-                const role = m.role || 'user';
-                const safeContent = content.length > 2000
-                    ? content.substring(0, 2000) + '... [CONTENT TRUNCATED]'
-                    : content;
-                return `${role}: ${safeContent}`;
-            }).join('\n');
+            const prunedActivity = this.pruneContext(messages);
 
             // B. Generate Prompt
             const prompt = `You are Gravity Claw. It is evening. Prepare a "Daily Recap" for the user.
@@ -145,11 +153,7 @@ export class SchedulerManager {
             
             Keep it warm but professional. Use Markdown.`;
 
-            // C. Truncate prompt if extremely long (Safety Guard for 30k token limit)
-            // 20k chars is very safe for a 30k token Organization limit
-            const safePrompt = prompt.length > 20000 ? prompt.substring(0, 20000) + '... [TRUNCATED DUE TO TOTAL LENGTH]' : prompt;
-
-            const response = await this.agent.run(safePrompt);
+            const response = await this.agent.run(prompt);
 
             // C. Send to Telegram
             if (this.bot) {
@@ -177,9 +181,10 @@ export class SchedulerManager {
 
             // B. Read Task List
             let taskList = 'No task list found.';
-            const taskPath = path.resolve(process.cwd(), '.gemini/antigravity/brain/ad92f87c-acfb-4be0-9c23-81116942657a/task.md');
+            const taskPath = path.resolve(process.cwd(), '.gemini/antigravity/brain/94a7b9ab-74a8-4873-97b8-b6ac1c1b68ee/task.md');
             if (fs.existsSync(taskPath)) {
                 taskList = fs.readFileSync(taskPath, 'utf8');
+                if (taskList.length > 5000) taskList = taskList.substring(0, 5000) + '... [TASK LIST TRUNCATED]';
             }
 
             // C. Generate Prompt
@@ -187,7 +192,7 @@ export class SchedulerManager {
             
             HISTORY/FACTS:
             ${summary ? `[LATEST SUMMARY]: ${summary.content}` : ''}
-            ${recentContext.map((m: any) => `${m.role}: ${m.content}`).join('\n')}
+            ${this.pruneContext(recentContext)}
             
             CURRENT TASK LIST:
             ${taskList}
