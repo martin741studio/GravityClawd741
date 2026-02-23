@@ -21,45 +21,50 @@ export class OpenAIProvider implements LLMProvider {
         });
     }
 
-    async sendMessage(message: string | any[] | MultimodalMessage): Promise<LLMResult> {
-        if (isMultimodal(message)) {
-            const content = message.map(part => {
-                if (part.text) return { type: 'text', text: part.text };
-                if (part.inlineData) {
-                    return {
-                        type: 'image_url',
-                        image_url: {
-                            url: `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`
-                        }
-                    };
-                }
-                return { type: 'text', text: '' };
-            });
-            this.history.push({ role: 'user', content });
-        } else if (Array.isArray(message)) {
-            for (const item of message) {
-                if (item.functionResponse) {
-                    this.history.push({
-                        role: 'tool',
-                        tool_call_id: item.functionResponse.id || item.functionResponse.name,
-                        content: typeof item.functionResponse.response.output === 'string'
-                            ? item.functionResponse.response.output
-                            : JSON.stringify(item.functionResponse.response.output)
-                    });
-                }
-            }
-        } else {
-            this.history.push({ role: 'user', content: message });
+    async sendMessage(message: string | any[] | MultimodalMessage, options?: { history?: any[], systemPrompt?: string }): Promise<LLMResult> {
+        const messages = options?.history ? [...options.history] : [];
+
+        if (options?.systemPrompt && !messages.find(m => m.role === 'system')) {
+            messages.unshift({ role: 'system', content: options.systemPrompt });
         }
 
-        const openAiTools = this.tools.map(tool => ({
+        if (typeof message === 'string') {
+            messages.push({ role: 'user', content: message });
+        } else if (Array.isArray(message)) {
+            // Check if it's already a formatted messages array from executor
+            if (message.length > 0 && (message[0] as any).role) {
+                messages.push(...(message as any[]));
+            } else if (isMultimodal(message)) {
+                const content = (message as MultimodalMessage).map(part => {
+                    if (part.text) return { type: 'text', text: part.text };
+                    if (part.inlineData) return { type: 'image_url', image_url: { url: `data:${part.inlineData.mimeType};base64,${part.inlineData.data}` } };
+                    return null;
+                }).filter(Boolean);
+                messages.push({ role: 'user', content });
+            } else {
+                // Handle tool results
+                for (const item of message) {
+                    if (item.functionResponse) {
+                        messages.push({
+                            role: 'tool',
+                            tool_call_id: item.functionResponse.id || item.functionResponse.name,
+                            content: typeof item.functionResponse.response.output === 'string'
+                                ? item.functionResponse.response.output
+                                : JSON.stringify(item.functionResponse.response.output || item.functionResponse.response.error)
+                        });
+                    }
+                }
+            }
+        }
+
+        const openAiTools = this.tools.length > 0 ? this.tools.map(tool => ({
             type: 'function',
             function: {
                 name: tool.name,
                 description: tool.description,
                 parameters: tool.parameters
             }
-        }));
+        })) : undefined;
 
         try {
             const response = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -70,7 +75,7 @@ export class OpenAIProvider implements LLMProvider {
                 },
                 body: JSON.stringify({
                     model: this.model,
-                    messages: this.history,
+                    messages: messages,
                     tools: openAiTools
                 })
             });
@@ -83,8 +88,6 @@ export class OpenAIProvider implements LLMProvider {
 
             const choice = data.choices[0];
             const assistantMsg = choice.message;
-
-            this.history.push(assistantMsg);
 
             return {
                 response: {
