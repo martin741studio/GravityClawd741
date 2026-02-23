@@ -22,7 +22,9 @@ export class Agent {
         this.executor = new ToolExecutor();
     }
 
-    async run(userMessage: string | MultimodalMessage, ctx?: Context, traitId: string = 'generalist'): Promise<string> {
+    async run(userMessage: string | MultimodalMessage, ctx?: Context, options?: { traitId?: string, skipContext?: boolean }): Promise<string> {
+        const traitId = options?.traitId || 'generalist';
+        const skipContext = options?.skipContext || false;
         const isMulti = Array.isArray(userMessage);
         const userText = isMulti
             ? (userMessage as MultimodalMessage).find(p => p.text)?.text || ''
@@ -37,8 +39,12 @@ export class Agent {
             // 1. Memory & Context
             memoryManager.logMessage('user', userText).catch(console.error);
             proactiveManager.detectIntent(userText).catch(console.error);
-            const context = await this.contextManager.getContext(userText);
-            const formattedContext = this.contextManager.formatContext(context);
+
+            let formattedContext = '';
+            if (!skipContext) {
+                const context = await this.contextManager.getContext(userText);
+                formattedContext = this.contextManager.formatContext(context);
+            }
 
             const trait = TRAITS[traitId] || TRAITS['generalist'];
 

@@ -11,7 +11,7 @@ export class GeminiProvider implements LLMProvider {
 
     constructor(tools: Tool[], tier: 'flash' | 'pro' = 'flash') {
         this.genAI = new GoogleGenerativeAI(config.geminiApiKey);
-        this.modelName = tier === 'pro' ? 'gemini-1.5-pro' : 'gemini-1.5-flash';
+        this.modelName = tier === 'pro' ? 'gemini-2.5-pro' : 'gemini-2.5-flash';
         this.tools = tools;
     }
 

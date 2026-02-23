@@ -113,7 +113,7 @@ export class SchedulerManager {
             
             Response Style: Concise, punchy, helpful. Use Markdown. Start with "💡 **Smart Recommendation**".`;
 
-            const response = await this.agent.run(prompt);
+            const response = await this.agent.run(prompt, undefined, { skipContext: true });
 
             // C. Send to Telegram
             if (this.bot) {
@@ -153,7 +153,7 @@ export class SchedulerManager {
             
             Keep it warm but professional. Use Markdown.`;
 
-            const response = await this.agent.run(prompt);
+            const response = await this.agent.run(prompt, undefined, { skipContext: true });
 
             // C. Send to Telegram
             if (this.bot) {
@@ -205,7 +205,7 @@ export class SchedulerManager {
             
             STYLE: Professional, concise, proactive. Use Markdown formatting.`;
 
-            const response = await this.agent.run(prompt);
+            const response = await this.agent.run(prompt, undefined, { skipContext: true });
 
             // D. Send to Telegram
             if (this.bot) {
@@ -241,7 +241,7 @@ export class SchedulerManager {
 
 Keep the summary professional and focused on the project.`;
 
-            const response = await this.agent.run(prompt);
+            const response = await this.agent.run(prompt, undefined, { skipContext: true });
             console.log('[Scheduler] Heartbeat Response:', response);
 
             // Log to memory so the user can ask about it later
